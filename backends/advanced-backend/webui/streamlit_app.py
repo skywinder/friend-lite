@@ -299,35 +299,47 @@ with tab_convos:
                                 unsafe_allow_html=True
                             )
                         
-                        # Smart audio display logic
-                        audio_path = convo.get("audio_path")
-                        cropped_audio_path = convo.get("cropped_audio_path")
+                        # Smart audio display logic with chunking support
+                        audio_chunks = convo.get("audio_chunks", [])
+                        cropped_chunks = convo.get("cropped_chunks", [])
+                        chunk_count = convo.get("chunk_count", len(audio_chunks))
                         
-                        if audio_path:
-                            # Determine which audio to show
+                        if audio_chunks:
+                            # Determine which audio files to show
                             if debug_mode:
-                                # Debug mode: always show original
-                                selected_audio_path = audio_path
-                                audio_label = "🔧 **Original Audio** (Debug Mode)"
-                            elif cropped_audio_path:
-                                # Normal mode: prefer cropped if available
-                                selected_audio_path = cropped_audio_path
-                                audio_label = "🎵 **Cropped Audio** (Silence Removed)"
+                                # Debug mode: show original chunks
+                                selected_chunks = audio_chunks
+                                audio_label = f"🔧 **Original Audio Chunks** (Debug Mode) - {len(audio_chunks)} files"
+                            elif cropped_chunks:
+                                # Normal mode: prefer cropped chunks if available
+                                selected_chunks = cropped_chunks
+                                audio_label = f"🎵 **Cropped Audio Chunks** (Silence Removed) - {len(cropped_chunks)} files"
                             else:
-                                # Fallback: show original if no cropped version
-                                selected_audio_path = audio_path
-                                audio_label = "🎵 **Original Audio** (No cropped version available)"
+                                # Fallback: show original chunks if no cropped versions
+                                selected_chunks = audio_chunks
+                                audio_label = f"🎵 **Original Audio Chunks** (No cropped versions) - {len(audio_chunks)} files"
                             
                             # Display audio with label
                             st.write(audio_label)
-                            audio_url = f"{BACKEND_PUBLIC_URL}/audio/{selected_audio_path}"
-                            st.audio(audio_url, format="audio/wav")
                             
-                            # Show additional info in debug mode or when both versions exist
-                            if debug_mode and cropped_audio_path:
-                                st.caption(f"💡 Cropped version available: {cropped_audio_path}")
-                            elif not debug_mode and cropped_audio_path:
-                                st.caption(f"💡 Enable debug mode to hear original with silence")
+                            # Show multiple audio players for chunks
+                            for i, chunk_file in enumerate(selected_chunks):
+                                chunk_label = f"**Chunk {i + 1}** ({chunk_file})"
+                                if len(selected_chunks) > 1:
+                                    st.write(chunk_label)
+                                
+                                audio_url = f"{BACKEND_PUBLIC_URL}/audio/{chunk_file}"
+                                st.audio(audio_url, format="audio/wav")
+                            
+                            # Show additional info
+                            if len(audio_chunks) > 1:
+                                total_duration = len(audio_chunks) * 10  # Estimate based on max chunk duration
+                                st.caption(f"📊 Conversation split into {len(audio_chunks)} chunks (~{total_duration} min max)")
+                            
+                            if debug_mode and cropped_chunks:
+                                st.caption(f"💡 {len(cropped_chunks)} cropped chunks available")
+                            elif not debug_mode and cropped_chunks:
+                                st.caption(f"💡 Enable debug mode to hear {len(audio_chunks)} original chunks with silence")
 
                     st.divider()
         else:
@@ -390,35 +402,57 @@ with tab_convos:
                         old_transcript = convo.get("transcription", "No transcript available.")
                         st.text_area("Transcription", old_transcript, height=150, disabled=True, key=f"transcript_{convo['_id']}")
                     
-                    # Smart audio display logic (same as above)
-                    audio_path = convo.get("audio_path")
-                    cropped_audio_path = convo.get("cropped_audio_path")
+                    # Smart audio display logic with chunking support (old format compatibility)
+                    audio_chunks = convo.get("audio_chunks", [])
+                    cropped_chunks = convo.get("cropped_chunks", [])
                     
-                    if audio_path:
-                        # Determine which audio to show
+                    # Handle old format fallback
+                    if not audio_chunks:
+                        audio_path = convo.get("audio_path")
+                        if audio_path:
+                            audio_chunks = [audio_path]
+                            
+                    if not cropped_chunks:
+                        cropped_audio_path = convo.get("cropped_audio_path")
+                        if cropped_audio_path:
+                            cropped_chunks = [cropped_audio_path]
+                    
+                    if audio_chunks:
+                        # Determine which audio files to show
                         if debug_mode:
-                            # Debug mode: always show original
-                            selected_audio_path = audio_path
-                            audio_label = "🔧 **Original Audio** (Debug Mode)"
-                        elif cropped_audio_path:
-                            # Normal mode: prefer cropped if available
-                            selected_audio_path = cropped_audio_path
-                            audio_label = "🎵 **Cropped Audio** (Silence Removed)"
+                            # Debug mode: show original chunks
+                            selected_chunks = audio_chunks
+                            audio_label = f"🔧 **Original Audio Chunks** (Debug Mode) - {len(audio_chunks)} files"
+                        elif cropped_chunks:
+                            # Normal mode: prefer cropped chunks if available
+                            selected_chunks = cropped_chunks
+                            audio_label = f"🎵 **Cropped Audio Chunks** (Silence Removed) - {len(cropped_chunks)} files"
                         else:
-                            # Fallback: show original if no cropped version
-                            selected_audio_path = audio_path
-                            audio_label = "🎵 **Original Audio** (No cropped version available)"
+                            # Fallback: show original chunks if no cropped versions
+                            selected_chunks = audio_chunks
+                            audio_label = f"🎵 **Original Audio Chunks** (No cropped versions) - {len(audio_chunks)} files"
                         
                         # Display audio with label
                         st.write(audio_label)
-                        audio_url = f"{BACKEND_PUBLIC_URL}/audio/{selected_audio_path}"
-                        st.audio(audio_url, format="audio/wav")
                         
-                        # Show additional info in debug mode or when both versions exist
-                        if debug_mode and cropped_audio_path:
-                            st.caption(f"💡 Cropped version available: {cropped_audio_path}")
-                        elif not debug_mode and cropped_audio_path:
-                            st.caption(f"💡 Enable debug mode to hear original with silence")
+                        # Show multiple audio players for chunks
+                        for i, chunk_file in enumerate(selected_chunks):
+                            chunk_label = f"**Chunk {i + 1}** ({chunk_file})"
+                            if len(selected_chunks) > 1:
+                                st.write(chunk_label)
+                            
+                            audio_url = f"{BACKEND_PUBLIC_URL}/audio/{chunk_file}"
+                            st.audio(audio_url, format="audio/wav")
+                        
+                        # Show additional info
+                        if len(audio_chunks) > 1:
+                            total_duration = len(audio_chunks) * 10  # Estimate based on max chunk duration
+                            st.caption(f"📊 Conversation split into {len(audio_chunks)} chunks (~{total_duration} min max)")
+                        
+                        if debug_mode and cropped_chunks:
+                            st.caption(f"💡 {len(cropped_chunks)} cropped chunks available")
+                        elif not debug_mode and cropped_chunks:
+                            st.caption(f"💡 Enable debug mode to hear {len(audio_chunks)} original chunks with silence")
 
                 st.divider()
     elif conversations is not None:
